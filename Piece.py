@@ -1,4 +1,5 @@
-import numpy as np
+# import numpy as np
+from itertools import product
 from abc import abstractmethod
 import pygame 
 
@@ -40,7 +41,7 @@ class Piece(pygame.sprite.Sprite):
                 self.selected = True
                 self.selected_offset_x = self.rect.x - mouse[0]
                 self.selected_offset_y = self.rect.y - mouse[1]
-                print(f"Set selected for {self.__class__.__name__}")
+                print(f"Selected {self.__class__.__name__}")
         elif remove_select and self.selected:
             # snap the position to the closest square
             self.rect.x = ((round(self.rect.x/self.sq_sz)) * self.sq_sz)
@@ -61,6 +62,11 @@ class Piece(pygame.sprite.Sprite):
             self.rect.x = move[0] + self.selected_offset_x
             self.rect.y = move[1] + self.selected_offset_y
             # print(f"New Positions: {self.rect.x}, {self.rect.y}")
+
+    @property
+    def grid_loc(self):
+
+        return self.pos[0] // self.sq_sz, self.pos[1] // self.sq_sz
 
     @abstractmethod
     def isLegal(self, board, proposed):
@@ -96,83 +102,94 @@ class Pawn(Piece):
 
         self.firstmove = True
 
+         # eventually change this to implement board switching
+        if self.color == "black":
+            self.direct = 1
+        elif self.color == "white":
+            self.direct = -1
+
     def isLegal(self, board, proposed):
         # what is the position on the board?
         legal = False
         
         prop_x, prop_y = tuple(i // self.sq_sz for i in proposed)
         print(prop_x, prop_y)
-        current_x, current_y = tuple(i // self.sq_sz for i in self.pos)
+        # current_x, current_y = tuple(i // self.sq_sz for i in self.pos)
+        current_x, current_y = self.grid_loc
         print(current_x, current_y)
 
-        # move two spaces for first move
-        if current_x == prop_x:
-            if abs(current_y - prop_y) == 2:
-                if self.firstmove:
-                    legal = True
-                    
-            # move one space for first move
-            elif abs(current_y - prop_y) == 1:
-                legal = True
+        # options
+        diffs = [(0, self.direct), (0, 2 * self.direct), (1, self.direct), (-1, self.direct)]
+        moves = [(current_x + d[0], current_y + d[1]) for d in diffs]
+        
+        single = moves[0]
+        double = moves[1]
+        capture = moves[2:]
 
-        # move diagonally if piece not of own color (capture is separate)
-        elif abs(current_x - prop_x) == 1:
-            if abs(current_y - prop_y) == 1:
-                if board[prop_y][prop_x] and self.color not in board[prop_y][prop_x]:
-                    legal = True
+        # remove any moves that are out of bounds
+        # or no piece to capture
+        for x,y in capture:
+
+            if not (0 <= x <= 7 and 0 <= y <= 7):
+                moves.remove((x,y))
+            
+            elif (not board[y][x]) or (self.color in str(board[y][x])):
+                moves.remove((x,y))
         
-        if legal:
+        # remove a single space move if piece is present
+        if board[single[1]][single[0]]:
+            moves.remove(single)
+        
+        # remove the double move if not first move
+        if not self.firstmove:
+            moves.remove(double)
+
+        # remove the double move if piece blocking it
+        elif board[double[1]][double[0]]:
+            moves.remove(double)
+        
+        if (prop_x, prop_y) in moves:
+            legal = True
             self.firstmove = False
-        
+
         return legal
 
 class Knight(Piece):
     """
-    currently limits to L-shape move and checks if proposed move lands on white piece
-    note: doesn't yet handle capturing
+
+    gives list of available moves, but doesn't handle capturing
     """
     def __init__(self, color, sq_sz):
         super().__init__("knight", color, sq_sz)
-    
-    def isLegal(self, board, proposed):
-        legal = True
 
-        if not self._reachable(proposed):
-            legal = False
-        
-        if not self._available(board, proposed):
-            legal = False
-        
-        return legal
-    
-    def _reachable(self, proposed):
-        reachable = False
+        # define moves by possible change in grid number
+        self.diffs = []
+        self.diffs.extend(list(product([1,-1], [2, -2])))
+        self.diffs.extend(list(product([2, -2], [1,-1])))
+
+    def isLegal(self, board, proposed):
+        legal = False
 
         prop_x, prop_y = tuple(i // self.sq_sz for i in proposed)
         print(prop_x, prop_y)
-        current_x, current_y = tuple(i // self.sq_sz for i in self.pos)
+        # current_x, current_y = tuple(i // self.sq_sz for i in self.pos)
+        current_x, current_y = self.grid_loc
         print(current_x, current_y)
 
-        diff_x = abs(prop_x - current_x)
-        diff_y = abs(prop_y - current_y)
-
-        if all([diff_x <= 2, diff_y <=2, diff_y + diff_x == 3]):
-            reachable = True
+        moves = []
+        for diff in self.diffs:
+            x,y  = diff
+            p_x = current_x + x
+            p_y = current_y + y
+            if 0 <= p_x <= 7:
+                if 0 <= p_y <= 7:
+                    if board[p_y][p_x] != self.color:
+                        moves.append((p_x, p_y))
         
-        return reachable
-
-    def _available(self, board, proposed):
+        if (prop_x, prop_y) in moves:
+            legal = True
         
-        available = True
-
-        prop_x, prop_y = tuple(i // self.sq_sz for i in proposed)
-        # current_x, current_y = tuple(i // self.sq_sz for i in self.pos)
-        
-        if self.color in str(board[prop_y][prop_x]):
-            available = False
-        
-        return available
-    
+        return legal
 
 class Bishop(Piece):
     """
@@ -184,111 +201,116 @@ class Bishop(Piece):
         super().__init__("bishop", color, sq_sz)
 
     def isLegal(self, board, proposed):
-        legal = True
+        legal = False
 
-        if not self._reachable(board, proposed):
-            legal = False
+        prop_x, prop_y = tuple(i // self.sq_sz for i in proposed)
+        print(prop_x, prop_y)
+        current_x, current_y = self.grid_loc
+        print(current_x, current_y)
 
+        directs = [(1,-1), (-1,1), (-1,-1), (1,1)]
+        moves = []
         
-        if not self._available(board, proposed):
-            legal = False
-        
+        for x,y in directs:
+            for d in range(1,9):
+                p_x = d * x + current_x
+                p_y = d * y + current_y
+
+                if not (0 <= p_x <= 7 and 0 <= p_y <= 7):
+                    break
+                
+                elif self.color in str(board[p_y][p_x]):
+                    break
+
+                elif board[p_y][p_x]:
+                    moves.append((p_x, p_y))
+                    break
+
+                moves.append((p_x, p_y))
+
+        if (prop_x, prop_y) in moves:
+            legal = True
+
         return legal
 
-    def _reachable(self, board, proposed):
-        reachable = True
 
-        prop_x, prop_y = tuple(i // self.sq_sz for i in proposed)
-        current_x, current_y = tuple(i // self.sq_sz for i in self.pos)
-
-        diff_x = prop_x - current_x
-        diff_y = prop_y - current_y
-
-        inter = np.arange(1, abs(diff_x))
-        inter = list(zip(inter * np.sign(diff_x) + current_x, 
-                        inter * np.sign(diff_y) + current_y))
-
-        if abs(diff_x) != abs(diff_y):
-            reachable = False
-        
-        for pos in inter:
-            if board[pos[1]][pos[0]] != 0:
-                reachable = False
-
-        return reachable
-
-    def _available(self, board, proposed):
-        available = True
-
-        prop_x, prop_y = tuple(i // self.sq_sz for i in proposed)
-        # current_x, current_y = tuple(i // self.sq_sz for i in self.pos)
-        
-        if self.color in str(board[prop_y][prop_x]):
-            available = False
-        
-        return available
     
 class Rook(Piece):
     def __init__(self, color, sq_sz):
         super().__init__("rook", color, sq_sz)
 
     def isLegal(self, board, proposed):
-        legal = True
+        legal = False
 
-        if not self._reachable(board, proposed):
-            legal = False
+        prop_x, prop_y = tuple(i // self.sq_sz for i in proposed)
+        print(prop_x, prop_y)
+        current_x, current_y = self.grid_loc
+        print(current_x, current_y)
 
+        directs = [(0,-1), (0,1), (-1,0), (1,0)]
+        moves = []
         
-        if not self._available(board, proposed):
-            legal = False
-        
+        for x,y in directs:
+            for d in range(1,9):
+                p_x = d * x + current_x
+                p_y = d * y + current_y
+
+                if not (0 <= p_x <= 7 and 0 <= p_y <= 7):
+                    break
+                
+                elif self.color in str(board[p_y][p_x]):
+                    break
+
+                elif board[p_y][p_x]:
+                    moves.append((p_x, p_y))
+                    break
+                
+                moves.append((p_x, p_y))
+
+        if (prop_x, prop_y) in moves:
+            legal = True
+       
         return legal
-    
-    def _reachable(self, board, proposed):
-        reachable = True
 
-        prop_x, prop_y = tuple(i // self.sq_sz for i in proposed)
-        current_x, current_y = tuple(i // self.sq_sz for i in self.pos)
-
-        # inter = np.arange(1, abs(diff_x))
-        # inter = list(zip(inter * np.sign(diff_x) + current_x, 
-        #                 inter * np.sign(diff_y) + current_y))
-
-        if prop_x == current_x:
-            comp1, comp2 = current_y, prop_y
-        else: comp1, comp2 = current_x, prop_x 
-
-        # check that one of the directions is the same (vertical or horiz move)
-        if not (prop_x == current_x or prop_y == current_y):
-            reachable = False
-        
-        # find inter
-        inter = np.arange(min(comp1, comp2) + 1, 
-                        max(comp1, comp2))
-        
-        for pos in inter:
-            if board[pos[1]][pos[0]] != 0:
-                reachable = False
-
-        return reachable
-
-    def _available(self, board, proposed):
-        available = True
-
-        prop_x, prop_y = tuple(i // self.sq_sz for i in proposed)
-        # current_x, current_y = tuple(i // self.sq_sz for i in self.pos)
-        
-        if self.color in str(board[prop_y][prop_x]):
-            available = False
-        
-        return available
+ 
     
 class Queen(Piece):
     def __init__(self, color, sq_sz):
         super().__init__("queen", color, sq_sz)
         
     def isLegal(self, board, proposed):
-        return True
+        legal = False
+
+        prop_x, prop_y = tuple(i // self.sq_sz for i in proposed)
+        print(prop_x, prop_y)
+        current_x, current_y = self.grid_loc
+        print(current_x, current_y)
+
+        directs = [(0,-1), (0,1), (-1,0), (1,0),
+                    (1,-1), (-1,1), (-1,-1), (1,1)]
+        moves = []
+        
+        for x,y in directs:
+            for d in range(1,9):
+                p_x = d * x + current_x
+                p_y = d * y + current_y
+
+                if not (0 <= p_x <= 7 and 0 <= p_y <= 7):
+                    break
+                
+                elif self.color in str(board[p_y][p_x]):
+                    break
+
+                elif board[p_y][p_x]:
+                    moves.append((p_x, p_y))
+                    break
+                
+                moves.append((p_x, p_y))
+
+        if (prop_x, prop_y) in moves:
+            legal = True
+       
+        return legal
     
 class King(Piece):
     def __init__(self, color, sq_sz):
