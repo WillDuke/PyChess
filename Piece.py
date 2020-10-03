@@ -3,6 +3,88 @@ from itertools import product
 from abc import abstractmethod
 import pygame 
 
+class ChessSet(pygame.sprite.Group):
+
+    def __init__(self):
+        super().__init__()
+
+        self.n_squares = 8
+        self.surface_sz = 480
+        self.sq_sz = self.surface_sz // self.n_squares
+        self.surface_sz = self.n_squares * self.sq_sz
+
+        self.capture = None
+        self.captured = pygame.sprite.Group()
+
+    def update(self, *args, **kwargs):
+        """call the update method of every member sprite
+        Group.update(*args): return None
+        Calls the update method of every member sprite. All arguments that
+        were passed to this method are passed to the Sprite update function.
+        """
+        board = self.get_positions()
+
+        for sprite in self.sprites():
+            # if sprite.color == "white":
+            sprite.update(board, *args, **kwargs)
+
+            # if capture position flag, loop through and remove sprite
+            if sprite.capture:
+                for cap in self.sprites():
+                    if cap.grid_loc == sprite.capture:
+                        if cap.color != sprite.color:
+                            self.captured.add(cap)
+                            self.remove(cap)
+                            sprite.capture = None
+                            break
+    
+    def get_positions(self):
+        
+        board = [[0 for i in range(8)] for i in range(8)]
+
+        for sprite in self.sprites():
+            x,y = tuple(i // sprite.sq_sz for i in sprite.pos)
+            board[y][x] = " ".join([sprite.color, sprite.ptype])
+        
+        return board
+
+    def create(self):
+
+        # eventually need to make this flippable 
+        # add argument that specifies which color is on 
+        # the top of the board
+        # then user selected color goes on the bottom
+
+        pieces = ChessSet()
+
+        board = [['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
+                    ['p', 'p', 'p', 'p', 'p', 'p', 'p', 'p'],
+                    [0, 0, 0, 0, 0, 0, 0, 0],
+                    [0, 0, 0, 0, 0, 0, 0, 0],
+                    [0, 0, 0, 0, 0, 0, 0, 0],
+                    [0, 0, 0, 0, 0, 0, 0, 0],
+                    ['P', 'P', 'P', 'P', 'P', 'P', 'P', 'P'],
+                    ['R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R']]
+
+        p_names = {'r': (Rook, "black"), 'n': (Knight, "black"),
+                       'b': (Bishop, "black"),'q': (Queen, "black"),
+                       'k': (King, "black"),'p': (Pawn, "black"),
+                       'R': (Rook, "white"), 'N': (Knight, "white"),
+                       'B': (Bishop, "white"),'Q': (Queen, "white"),
+                       'K': (King, "white"),'P': (Pawn,"white")}
+
+        for ycd, col in enumerate(board):
+            for xcd, square in enumerate(col):
+                if square:
+                    class_, color = p_names[square]
+                    piece = class_(color, self.sq_sz)
+                    piece.rect.x = xcd * self.sq_sz
+                    piece.rect.y = ycd * self.sq_sz
+                    piece.pos = (piece.rect.x, piece.rect.y)
+                    pieces.add(piece)
+                    
+        return pieces
+
 class Piece(pygame.sprite.Sprite):
     '''Object for each piece'''
     def __init__(self, ptype, color, sq_sz):
@@ -25,6 +107,8 @@ class Piece(pygame.sprite.Sprite):
         self.selected = None
         self.selected_offset_x = None
         self.selected_offset_y = None
+
+        self.capture = None
         
     def update(self, *args, **kwargs):
         
@@ -71,37 +155,13 @@ class Piece(pygame.sprite.Sprite):
     @abstractmethod
     def isLegal(self, board, proposed):
         raise NotImplementedError
-
-class Group(pygame.sprite.Group):
-
-    """For some reasion this is missing **kwargs in my version, so I added it."""
-    def update(self, *args, **kwargs):
-        """call the update method of every member sprite
-        Group.update(*args): return None
-        Calls the update method of every member sprite. All arguments that
-        were passed to this method are passed to the Sprite update function.
-        """
-        board = self.get_positions()
-
-        for sprite in self.sprites():
-            sprite.update(board, *args, **kwargs)
-    
-    def get_positions(self):
-        
-        board = [[0 for i in range(8)] for i in range(8)]
-
-        for sprite in self.sprites():
-            x,y = tuple(i // sprite.sq_sz for i in sprite.pos)
-            board[y][x] = " ".join([sprite.color, sprite.ptype])
-        
-        return board
         
 class Pawn(Piece):
     def __init__(self, color, sq_sz):
         super().__init__("pawn", color, sq_sz)
 
         self.firstmove = True
-
+        
          # eventually change this to implement board switching
         if self.color == "black":
             self.direct = 1
@@ -152,6 +212,8 @@ class Pawn(Piece):
         if (prop_x, prop_y) in moves:
             legal = True
             self.firstmove = False
+            if board[prop_y][prop_x]:
+                self.capture = (prop_x, prop_y)
 
         return legal
 
@@ -185,11 +247,13 @@ class Knight(Piece):
             p_y = current_y + y
             if 0 <= p_x <= 7:
                 if 0 <= p_y <= 7:
-                    if board[p_y][p_x] != self.color:
+                    if self.color not in str(board[p_y][p_x]):
                         moves.append((p_x, p_y))
         
         if (prop_x, prop_y) in moves:
             legal = True
+            if board[prop_y][prop_x]:
+                self.capture = (prop_x, prop_y)
         
         return legal
 
@@ -234,6 +298,8 @@ class Bishop(Piece):
 
         if (prop_x, prop_y) in moves:
             legal = True
+            if board[prop_y][prop_x]:
+                self.capture = (prop_x, prop_y)
 
         return legal
     
@@ -273,6 +339,8 @@ class Rook(Piece):
 
         if (prop_x, prop_y) in moves:
             legal = True
+            if board[prop_y][prop_x]:
+                self.capture = (prop_x, prop_y)
        
         return legal
 
@@ -313,6 +381,8 @@ class Queen(Piece):
 
         if (prop_x, prop_y) in moves:
             legal = True
+            if board[prop_y][prop_x]:
+                self.capture = (prop_x, prop_y)
        
         return legal
     
@@ -339,18 +409,20 @@ class King(Piece):
             p_y = y + current_y
 
             if not (0 <= p_x <= 7 and 0 <= p_y <= 7):
-                break
+                continue
             
             elif self.color in str(board[p_y][p_x]):
-                break
+                continue
 
             elif board[p_y][p_x]:
                 moves.append((p_x, p_y))
-                break
+                continue
             
             moves.append((p_x, p_y))
 
         if (prop_x, prop_y) in moves:
             legal = True
+            if board[prop_y][prop_x]:
+                self.capture = (prop_x, prop_y)
        
         return legal

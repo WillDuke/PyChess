@@ -2,56 +2,7 @@
 # import numpy as np
 # from abc import abstractmethod
 import pygame 
-from Piece import Group, Pawn, Knight, Bishop, Rook, Queen, King
-
-class ChessSet:
-
-    def __init__(self):
-
-        self.n_squares = 8
-        self.surface_sz = 480
-        self.sq_sz = self.surface_sz // self.n_squares
-        self.surface_sz = self.n_squares * self.sq_sz
-        # self.colors = [(255,248,220), (205,133,63)]
-
-        self.board = [['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
-                    ['p', 'p', 'p', 'p', 'p', 'p', 'p', 'p'],
-                    [0, 0, 0, 0, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 0, 0, 0, 0],
-                    ['P', 'P', 'P', 'P', 'P', 'P', 'P', 'P'],
-                    ['R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R']]
-
-        self.p_names = {'r': (Rook, "black"), 'n': (Knight, "black"),
-                       'b': (Bishop, "black"),'q': (Queen, "black"),
-                       'k': (King, "black"),'p': (Pawn, "black"),
-                       'R': (Rook, "white"), 'N': (Knight, "white"),
-                       'B': (Bishop, "white"),'Q': (Queen, "white"),
-                       'K': (King, "white"),'P': (Pawn,"white")}
-
-    def get_pieces(self):
-        # w_pieces = Group()
-        # b_pieces = Group()
-        pieces = Group()
-        # empty_squares = Group()
-
-        for ycd, col in enumerate(self.board):
-            for xcd, square in enumerate(col):
-                if square:
-                    class_, color = self.p_names[square]
-                    piece = class_(color, self.sq_sz)
-                    piece.rect.x = xcd * self.sq_sz
-                    piece.rect.y = ycd * self.sq_sz
-                    piece.pos = (piece.rect.x, piece.rect.y)
-                    # print((piece.pos))
-                    # if color == "white":
-                    #     w_pieces.add(piece)
-                    # else: b_pieces.add(piece)
-                    pieces.add(piece)
-        # return w_pieces, b_pieces
-        # print(pieces.get_positions())
-        return pieces
+from Piece import ChessSet
 
 ### GAME ###
 
@@ -72,8 +23,7 @@ class Game:
 
         self.game_over = False
         self.chess_set = ChessSet()
-        # self.w_pieces, self.b_pieces = self.chess_set.get_pieces()
-        self.pieces = self.chess_set.get_pieces()
+        self.pieces = self.chess_set.create()
     
     def process_events(self):
         """ Process all of the events. Return a "True" if we need

@@ -26,6 +26,9 @@ The game itself is built in PyGame. I have subclassed PyGame's `sprite` and `gro
     - rect position updates with mouse dragging and makes use of built-in `Sprite` functionality
     - a separate attribute `pos` in each piece updates to a grid position only if the move is determined to be acceptable
 - Added logic to "snap-in" pieces to grid if acceptable move
+- Completed movement logic for all pieces for all "regular" moves (i.e. no en passant, check detection, or castling)
+- Add capture handling -- `ChessSet` polls pieces for a capture flag and removes any pieces listed from the group
+- Refactor so that factory method is part of `ChessSet` group rather than a separate class
 
 ## TO DO
 
@@ -33,22 +36,13 @@ The game itself is built in PyGame. I have subclassed PyGame's `sprite` and `gro
     - set the position with a tuple of the pixel position
     - get_position and return a tuple of the board position (// sq_sz)
 - Add logic for each piece to determine reachable squares
-    - Pawn: No en passant or capturing
-    - Knight: No capturing
-    - Bishop: No capturing
-    - Rook: No capturing
-    - Queen: No capturing
-    - King: Not Yet Started
-- Add logic for capture detection:
-    - one idea: need to raise a capture flag when a piece captures another
-    - group update can drop any piece that is overlapping with no capture flag
+    - Pawn: No en passant
+    - Knight: Done
+    - Bishop: Done
+    - Rook: Done
+    - Queen: Done
+    - King: No castling, no check
 - Add logic for alternating turns
-- Add capture detection/handling
-    - one method: update in piece determines whether the move for a given piece is available (i.e. in piece.available_moves)
-    subclass defines available moves setter
-    - each piece also has a method that checks whether the current move puts the opposing king in check
-    - this method would have to check the whole board after the update
-    - if check = True, raise a flag 
 - Add en passant!
 - Add check detection
     - if king's position is among all available moves, check!
