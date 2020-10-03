@@ -112,10 +112,11 @@ class Pawn(Piece):
         # what is the position on the board?
         legal = False
         
+        # get current and proposed grid locations
         prop_x, prop_y = tuple(i // self.sq_sz for i in proposed)
-        print(prop_x, prop_y)
-        # current_x, current_y = tuple(i // self.sq_sz for i in self.pos)
         current_x, current_y = self.grid_loc
+
+        print(prop_x, prop_y)
         print(current_x, current_y)
 
         # options
@@ -170,10 +171,11 @@ class Knight(Piece):
     def isLegal(self, board, proposed):
         legal = False
 
+        # get current and proposed grid locations
         prop_x, prop_y = tuple(i // self.sq_sz for i in proposed)
-        print(prop_x, prop_y)
-        # current_x, current_y = tuple(i // self.sq_sz for i in self.pos)
         current_x, current_y = self.grid_loc
+
+        print(prop_x, prop_y)
         print(current_x, current_y)
 
         moves = []
@@ -203,9 +205,11 @@ class Bishop(Piece):
     def isLegal(self, board, proposed):
         legal = False
 
+        # get current and proposed grid locations
         prop_x, prop_y = tuple(i // self.sq_sz for i in proposed)
-        print(prop_x, prop_y)
         current_x, current_y = self.grid_loc
+
+        print(prop_x, prop_y)
         print(current_x, current_y)
 
         directs = [(1,-1), (-1,1), (-1,-1), (1,1)]
@@ -232,8 +236,6 @@ class Bishop(Piece):
             legal = True
 
         return legal
-
-
     
 class Rook(Piece):
     def __init__(self, color, sq_sz):
@@ -242,9 +244,11 @@ class Rook(Piece):
     def isLegal(self, board, proposed):
         legal = False
 
+        # get current and proposed grid locations
         prop_x, prop_y = tuple(i // self.sq_sz for i in proposed)
-        print(prop_x, prop_y)
         current_x, current_y = self.grid_loc
+
+        print(prop_x, prop_y)
         print(current_x, current_y)
 
         directs = [(0,-1), (0,1), (-1,0), (1,0)]
@@ -272,8 +276,6 @@ class Rook(Piece):
        
         return legal
 
- 
-    
 class Queen(Piece):
     def __init__(self, color, sq_sz):
         super().__init__("queen", color, sq_sz)
@@ -281,9 +283,11 @@ class Queen(Piece):
     def isLegal(self, board, proposed):
         legal = False
 
+        # get current and proposed grid locations
         prop_x, prop_y = tuple(i // self.sq_sz for i in proposed)
-        print(prop_x, prop_y)
         current_x, current_y = self.grid_loc
+
+        print(prop_x, prop_y)
         print(current_x, current_y)
 
         directs = [(0,-1), (0,1), (-1,0), (1,0),
@@ -317,4 +321,36 @@ class King(Piece):
         super().__init__("king", color, sq_sz)
 
     def isLegal(self, board, proposed):
-        return True
+        legal = False
+
+        # get current and proposed grid locations
+        prop_x, prop_y = tuple(i // self.sq_sz for i in proposed)
+        current_x, current_y = self.grid_loc
+
+        print(prop_x, prop_y)
+        print(current_x, current_y)
+
+        directs = [(0,-1), (0,1), (-1,0), (1,0),
+                    (1,-1), (-1,1), (-1,-1), (1,1)]
+        moves = []
+        
+        for x,y in directs:
+            p_x = x + current_x
+            p_y = y + current_y
+
+            if not (0 <= p_x <= 7 and 0 <= p_y <= 7):
+                break
+            
+            elif self.color in str(board[p_y][p_x]):
+                break
+
+            elif board[p_y][p_x]:
+                moves.append((p_x, p_y))
+                break
+            
+            moves.append((p_x, p_y))
+
+        if (prop_x, prop_y) in moves:
+            legal = True
+       
+        return legal
