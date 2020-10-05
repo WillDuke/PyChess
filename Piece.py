@@ -1,10 +1,10 @@
 # import numpy as np
 from itertools import product
 from abc import abstractmethod
-import pygame 
+import pygame
+
 
 class ChessSet(pygame.sprite.Group):
-
     def __init__(self):
         super().__init__()
 
@@ -18,18 +18,17 @@ class ChessSet(pygame.sprite.Group):
 
         self.history = []
 
-    def update(self, *args, **kwargs):
-        """call the update method of every member sprite
-        Group.update(*args): return None
-        Calls the update method of every member sprite. All arguments that
-        were passed to this method are passed to the Sprite update function.
+    def update(self):
+        """
+        Update the position of the piece by either snapping it in or reverting it,
+        depending on the legality of the move.
         """
         board = self.get_positions()
-        
+
         for sprite in self.sprites():
 
             # if sprite.color == "white":
-            sprite.update(board, self.history, *args, **kwargs)
+            sprite.update(board, self.history)
 
             # if capture position flag, loop through and remove sprite
             if sprite.capture:
@@ -40,42 +39,64 @@ class ChessSet(pygame.sprite.Group):
                             self.remove(cap)
                             sprite.capture = None
                             break
-        
     
+    def select(self, mouse):
+
+        for sprite in self.sprites():
+            sprite.select(mouse)
+    
+    def drag(self, move):
+
+        on_board = all([0 <= m <= self.surface_sz for m in move])
+
+        if on_board:
+            for sprite in self.sprites():
+                sprite.drag(move)
+
     def get_positions(self):
-        
+
         board = [[0 for i in range(8)] for i in range(8)]
 
         for sprite in self.sprites():
-            x,y = tuple(i // sprite.sq_sz for i in sprite.pos)
+            x, y = tuple(i // sprite.sq_sz for i in sprite.pos)
             board[y][x] = " ".join([sprite.color, sprite.ptype])
-        
+
         return board
 
     def create(self):
 
-        # eventually need to make this flippable 
-        # add argument that specifies which color is on 
+        # eventually need to make this flippable
+        # add argument that specifies which color is on
         # the top of the board
         # then user selected color goes on the bottom
 
         pieces = ChessSet()
 
-        board = [['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
-                    ['p', 'p', 'p', 'p', 'p', 'p', 'p', 'p'],
-                    [0, 0, 0, 0, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 0, 0, 0, 0],
-                    ['P', 'P', 'P', 'P', 'P', 'P', 'P', 'P'],
-                    ['R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R']]
+        board = [
+            ["r", "n", "b", "q", "k", "b", "n", "r"],
+            ["p", "p", "p", "p", "p", "p", "p", "p"],
+            [0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0],
+            ["P", "P", "P", "P", "P", "P", "P", "P"],
+            ["R", "N", "B", "Q", "K", "B", "N", "R"],
+        ]
 
-        p_names = {'r': (Rook, "black"), 'n': (Knight, "black"),
-                       'b': (Bishop, "black"),'q': (Queen, "black"),
-                       'k': (King, "black"),'p': (Pawn, "black"),
-                       'R': (Rook, "white"), 'N': (Knight, "white"),
-                       'B': (Bishop, "white"),'Q': (Queen, "white"),
-                       'K': (King, "white"),'P': (Pawn,"white")}
+        p_names = {
+            "r": (Rook, "black"),
+            "n": (Knight, "black"),
+            "b": (Bishop, "black"),
+            "q": (Queen, "black"),
+            "k": (King, "black"),
+            "p": (Pawn, "black"),
+            "R": (Rook, "white"),
+            "N": (Knight, "white"),
+            "B": (Bishop, "white"),
+            "Q": (Queen, "white"),
+            "K": (King, "white"),
+            "P": (Pawn, "white"),
+        }
 
         for ycd, col in enumerate(board):
             for xcd, square in enumerate(col):
@@ -86,11 +107,13 @@ class ChessSet(pygame.sprite.Group):
                     piece.rect.y = ycd * self.sq_sz
                     piece.pos = (piece.rect.x, piece.rect.y)
                     pieces.add(piece)
-                    
+
         return pieces
 
+
 class Piece(pygame.sprite.Sprite):
-    '''Object for each piece'''
+    """Object for each piece"""
+
     def __init__(self, ptype, color, sq_sz):
 
         super().__init__()
@@ -100,7 +123,8 @@ class Piece(pygame.sprite.Sprite):
         self.color = color
         # get scaled sprite
         self.image = pygame.transform.scale(
-                        pygame.image.load(sprite_path), (sq_sz,sq_sz))
+            pygame.image.load(sprite_path), (sq_sz, sq_sz)
+        )
         self.sq_sz = sq_sz
         # get rect from sprite
         self.rect = self.image.get_rect()
@@ -113,34 +137,16 @@ class Piece(pygame.sprite.Sprite):
         self.selected_offset_y = None
 
         self.capture = None
-        
-        
-    def update(self, board, history, *args, **kwargs):
-        
-        # look for the available kwargs
-        mouse = kwargs.get("mouse")
-        remove_select = kwargs.get("remove_select")
-        move = kwargs.get("move")
-        
-        for arg in args:
-            print(arg)
-        # if the update is for the mouse position, check 
-        # if the piece collides, and if so 
-        # set selected to true and specify offset
-        if mouse is not None:
-            # print("Made it to update!")
-            if self.rect.collidepoint(mouse):
-                self.selected = True
-                self.selected_offset_x = self.rect.x - mouse[0]
-                self.selected_offset_y = self.rect.y - mouse[1]
-                print(f"Selected {self.__class__.__name__}")
-        elif remove_select and self.selected:
+
+    def update(self, board, history):
+    
+        if self.selected:
             # snap the position to the closest square
-            self.rect.x = ((round(self.rect.x/self.sq_sz)) * self.sq_sz)
-            self.rect.y = ((round(self.rect.y/self.sq_sz)) * self.sq_sz)
+            self.rect.x = (round(self.rect.x / self.sq_sz)) * self.sq_sz
+            self.rect.y = (round(self.rect.y / self.sq_sz)) * self.sq_sz
             proposed = (self.rect.x, self.rect.y)
 
-            if self.isLegal(board, proposed, history = history):
+            if self.isLegal(board, proposed, history=history):
                 # update position of piece on the board
                 self.pos = proposed
                 # update tracker
@@ -148,14 +154,22 @@ class Piece(pygame.sprite.Sprite):
                 print(history)
             else:
                 self.rect.x, self.rect.y = self.pos
-            
-            self.selected = False
 
-        if move is not None and self.selected:
-            # print(f"Args: {args}")
+            self.selected = False
+    
+    def select(self, mouse):
+
+        if self.rect.collidepoint(mouse):
+            self.selected = True
+            self.selected_offset_x = self.rect.x - mouse[0]
+            self.selected_offset_y = self.rect.y - mouse[1]
+            print(f"Selected {self.__class__.__name__}")
+
+    def drag(self, move):
+
+        if self.selected:
             self.rect.x = move[0] + self.selected_offset_x
             self.rect.y = move[1] + self.selected_offset_y
-            # print(f"New Positions: {self.rect.x}, {self.rect.y}")
 
     def update_history(self, board, history):
 
@@ -165,15 +179,17 @@ class Piece(pygame.sprite.Sprite):
 
         if hasattr(self, "double_on_last"):
             special = self.double_on_last
-        else: 
+        else:
             special = False
 
-        move_dict = {'Name' : self.__class__.__name__, 
-                    'Move' : self.grid_loc, 
-                    'Number': len(history) + 1,
-                    "Capture" :  capture, 
-                    "Special" : special}
-        
+        move_dict = {
+            "Name": self.__class__.__name__,
+            "Move": self.grid_loc,
+            "Number": len(history) + 1,
+            "Capture": capture,
+            "Special": special,
+        }
+
         history.append(move_dict)
 
     @property
@@ -184,7 +200,8 @@ class Piece(pygame.sprite.Sprite):
     @abstractmethod
     def isLegal(self, board, proposed, **kwargs):
         raise NotImplementedError
-        
+
+
 class Pawn(Piece):
     def __init__(self, color, sq_sz):
         super().__init__("pawn", color, sq_sz)
@@ -192,8 +209,8 @@ class Pawn(Piece):
         self.firstmove = True
 
         self.double_on_last = False
-        print(self.double_on_last)
-         # eventually change this to implement board switching
+        
+        # eventually change this to implement board switching
         if self.color == "black":
             self.direct = 1
         elif self.color == "white":
@@ -207,10 +224,10 @@ class Pawn(Piece):
 
         # give location of last move if last move was a pawn moving two squares
         if history:
-            pawn_last_move = history[-1]['Move'] if history[-1]["Special"] else None
-        else: 
+            pawn_last_move = history[-1]["Move"] if history[-1]["Special"] else None
+        else:
             pawn_last_move = None
-        
+
         # get current and proposed grid locations
         prop_x, prop_y = tuple(i // self.sq_sz for i in proposed)
         current_x, current_y = self.grid_loc
@@ -218,47 +235,44 @@ class Pawn(Piece):
         print(prop_x, prop_y)
         print(current_x, current_y)
 
-        # options
-        # diffs = [(0, self.direct), (0, 2 * self.direct), (1, self.direct), (-1, self.direct)]
-        # moves = [(current_x + d[0], current_y + d[1]) for d in diffs]
-        
         # possible forward moves
         moves = []
         single = (current_x, current_y + self.direct)
         double = (current_x, current_y + 2 * self.direct)
 
         # possible capture moves
-        pos_captures = [(current_x + 1, current_y + self.direct), 
-                    (current_x - 1, current_y + self.direct)]
+        pos_captures = [
+            (current_x + 1, current_y + self.direct),
+            (current_x - 1, current_y + self.direct),
+        ]
 
         captures = []
         en_passant = []
-        for x,y in pos_captures:
-            
+        for x, y in pos_captures:
+
             # condition that position is on board
-            if (0 <= x <= 7 and 0 <= y <= 7):
-                
+            if 0 <= x <= 7 and 0 <= y <= 7:
+
                 # add to acceptable captures if there is an opposing piece there
                 if board[y][x] and (self.color not in str(board[y][x])):
-                    captures.append((x,y))
-                    
- 
+                    captures.append((x, y))
+
                 # if a pawn moved two squares on last move, check for en passant
                 elif pawn_last_move:
-                    
+
                     opp_x, opp_y = pawn_last_move
-                    
+
                     ep_location = (opp_x, opp_y + self.direct)
-                    # if capture location in captures, remove from captures and 
+                    # if capture location in captures, remove from captures and
                     # add to en_passant
                     if ep_location in pos_captures:
 
                         en_passant.append(ep_location)
-        
+
         # remove a single space move if piece is present
         if not board[single[1]][single[0]]:
             moves.append(single)
-        
+
             # add to moves the double move if first move and unblocked
             if self.firstmove and not board[double[1]][double[0]]:
                 moves.append(double)
@@ -266,18 +280,19 @@ class Pawn(Piece):
         # check for double move
         if (prop_x, prop_y) == double:
             self.double_on_last = True
-        else: self.double_on_last = False
+        else:
+            self.double_on_last = False
 
         # check if in moves and set legal if so
         if (prop_x, prop_y) in moves:
             legal = True
             self.firstmove = False
-        
+
         # set capture flag if move is a capture
         if (prop_x, prop_y) in captures:
             legal = True
             self.capture = (prop_x, prop_y)
-        
+
         # set en_passant
         elif (prop_x, prop_y) in en_passant:
             legal = True
@@ -285,18 +300,20 @@ class Pawn(Piece):
 
         return legal
 
+
 class Knight(Piece):
     """
 
     gives list of available moves, but doesn't handle capturing
     """
+
     def __init__(self, color, sq_sz):
         super().__init__("knight", color, sq_sz)
 
         # define moves by possible change in grid number
         self.diffs = []
-        self.diffs.extend(list(product([1,-1], [2, -2])))
-        self.diffs.extend(list(product([2, -2], [1,-1])))
+        self.diffs.extend(list(product([1, -1], [2, -2])))
+        self.diffs.extend(list(product([2, -2], [1, -1])))
 
     def isLegal(self, board, proposed, **kwargs):
         legal = False
@@ -310,20 +327,21 @@ class Knight(Piece):
 
         moves = []
         for diff in self.diffs:
-            x,y  = diff
+            x, y = diff
             p_x = current_x + x
             p_y = current_y + y
             if 0 <= p_x <= 7:
                 if 0 <= p_y <= 7:
                     if self.color not in str(board[p_y][p_x]):
                         moves.append((p_x, p_y))
-        
+
         if (prop_x, prop_y) in moves:
             legal = True
             if board[prop_y][prop_x]:
                 self.capture = (prop_x, prop_y)
-        
+
         return legal
+
 
 class Bishop(Piece):
     """
@@ -331,6 +349,7 @@ class Bishop(Piece):
     and checks if proposed move lands on own color piece
     note: doesn't yet handle capturing
     """
+
     def __init__(self, color, sq_sz):
         super().__init__("bishop", color, sq_sz)
 
@@ -344,17 +363,17 @@ class Bishop(Piece):
         print(prop_x, prop_y)
         print(current_x, current_y)
 
-        directs = [(1,-1), (-1,1), (-1,-1), (1,1)]
+        directs = [(1, -1), (-1, 1), (-1, -1), (1, 1)]
         moves = []
-        
-        for x,y in directs:
-            for d in range(1,9):
+
+        for x, y in directs:
+            for d in range(1, 9):
                 p_x = d * x + current_x
                 p_y = d * y + current_y
 
                 if not (0 <= p_x <= 7 and 0 <= p_y <= 7):
                     break
-                
+
                 elif self.color in str(board[p_y][p_x]):
                     break
 
@@ -370,7 +389,8 @@ class Bishop(Piece):
                 self.capture = (prop_x, prop_y)
 
         return legal
-    
+
+
 class Rook(Piece):
     def __init__(self, color, sq_sz):
         super().__init__("rook", color, sq_sz)
@@ -385,37 +405,38 @@ class Rook(Piece):
         print(prop_x, prop_y)
         print(current_x, current_y)
 
-        directs = [(0,-1), (0,1), (-1,0), (1,0)]
+        directs = [(0, -1), (0, 1), (-1, 0), (1, 0)]
         moves = []
-        
-        for x,y in directs:
-            for d in range(1,9):
+
+        for x, y in directs:
+            for d in range(1, 9):
                 p_x = d * x + current_x
                 p_y = d * y + current_y
 
                 if not (0 <= p_x <= 7 and 0 <= p_y <= 7):
                     break
-                
+
                 elif self.color in str(board[p_y][p_x]):
                     break
 
                 elif board[p_y][p_x]:
                     moves.append((p_x, p_y))
                     break
-                
+
                 moves.append((p_x, p_y))
 
         if (prop_x, prop_y) in moves:
             legal = True
             if board[prop_y][prop_x]:
                 self.capture = (prop_x, prop_y)
-       
+
         return legal
+
 
 class Queen(Piece):
     def __init__(self, color, sq_sz):
         super().__init__("queen", color, sq_sz)
-        
+
     def isLegal(self, board, proposed, **kwargs):
         legal = False
 
@@ -426,34 +447,34 @@ class Queen(Piece):
         print(prop_x, prop_y)
         print(current_x, current_y)
 
-        directs = [(0,-1), (0,1), (-1,0), (1,0),
-                    (1,-1), (-1,1), (-1,-1), (1,1)]
+        directs = [(0, -1), (0, 1), (-1, 0), (1, 0), (1, -1), (-1, 1), (-1, -1), (1, 1)]
         moves = []
-        
-        for x,y in directs:
-            for d in range(1,9):
+
+        for x, y in directs:
+            for d in range(1, 9):
                 p_x = d * x + current_x
                 p_y = d * y + current_y
 
                 if not (0 <= p_x <= 7 and 0 <= p_y <= 7):
                     break
-                
+
                 elif self.color in str(board[p_y][p_x]):
                     break
 
                 elif board[p_y][p_x]:
                     moves.append((p_x, p_y))
                     break
-                
+
                 moves.append((p_x, p_y))
 
         if (prop_x, prop_y) in moves:
             legal = True
             if board[prop_y][prop_x]:
                 self.capture = (prop_x, prop_y)
-       
+
         return legal
-    
+
+
 class King(Piece):
     def __init__(self, color, sq_sz):
         super().__init__("king", color, sq_sz)
@@ -468,29 +489,28 @@ class King(Piece):
         print(prop_x, prop_y)
         print(current_x, current_y)
 
-        directs = [(0,-1), (0,1), (-1,0), (1,0),
-                    (1,-1), (-1,1), (-1,-1), (1,1)]
+        directs = [(0, -1), (0, 1), (-1, 0), (1, 0), (1, -1), (-1, 1), (-1, -1), (1, 1)]
         moves = []
-        
-        for x,y in directs:
+
+        for x, y in directs:
             p_x = x + current_x
             p_y = y + current_y
 
             if not (0 <= p_x <= 7 and 0 <= p_y <= 7):
                 continue
-            
+
             elif self.color in str(board[p_y][p_x]):
                 continue
 
             elif board[p_y][p_x]:
                 moves.append((p_x, p_y))
                 continue
-            
+
             moves.append((p_x, p_y))
 
         if (prop_x, prop_y) in moves:
             legal = True
             if board[prop_y][prop_x]:
                 self.capture = (prop_x, prop_y)
-       
+
         return legal
