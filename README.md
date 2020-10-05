@@ -1,7 +1,6 @@
 # PyChess
 
 A project to build a working chess game with legal move, check, checkmate, dead position, etc. detection. The idea is to eventually pair this with a language model so that one can play against the model that has learned to play chess purely from the notated games from the FIDE database.
-
 ____
 
 ## Design
@@ -29,21 +28,22 @@ The game itself is built in PyGame. I have subclassed PyGame's `sprite` and `gro
 - Completed movement logic for all pieces for all "regular" moves (i.e. no en passant, check detection, or castling)
 - Add capture handling -- `ChessSet` polls pieces for a capture flag and removes any pieces listed from the group
 - Refactor so that factory method is part of `ChessSet` group rather than a separate class
+- Added `history` attribute to `ChessSet`
+    - tracks moves and records information about them 
+- Added en passant
+    - pawn receives history attribute from `ChessSet` class via update and checks whether an adjacent pawn moved two squares on its last move
 
 ## TO DO
 
-- Fix position attribute with proper getter/setter
-    - set the position with a tuple of the pixel position
-    - get_position and return a tuple of the board position (// sq_sz)
 - Add logic for each piece to determine reachable squares
-    - Pawn: No en passant
+    - Pawn: No promotion
     - Knight: Done
     - Bishop: Done
     - Rook: Done
     - Queen: Done
     - King: No castling, no check
-- Add logic for alternating turns
-- Add en passant!
+- Add promotion
+- Add castling
 - Add check detection
     - if king's position is among all available moves, check!
     - also an option: check e.g. if white's king is in check after their move, move is illegal
@@ -56,6 +56,8 @@ The game itself is built in PyGame. I have subclassed PyGame's `sprite` and `gro
     - note: this leaves an issue: currently the board is only checked when one player moves a piece
 - Add insufficient material detection
     - e.g. if each side only has a single knight, game cannot be won
+- Add logic for alternating turns
+- Add game menu
 - End Game and Reset
     - Detect win/draw/reset
 
