@@ -50,10 +50,22 @@ The game itself is built in PyGame. I have subclassed PyGame's `sprite` and `gro
         - this accounts for the possibility of leaving the king in check, moving the king into check, or moving another piece such that the king is in check
     - better idea: when looping through the pieces, check whether piece can reach the opposing king regardless of whether the piece is being moved (if so, set flag to TRUE) 
     - each piece also has a method that checks whether the current move puts the player's king in check
+    - alternatively, I could move the process into the ChessSet.update method
+        - first, loop through each piece and return True if selected piece can legally move to that position (ignoring check)
+        - second, loop through all of the opposing pieces and return True if none of them can reach the king
+        - if both are true, update the position
+        - otherwise, revert
+        - in this case, I would need to move the call to update history into update so that moves are only added if both checks are satisfied
+        - third, get available moves for given piece and check if king's position is among them -- if so set check flag to True
 - Add checkmate detection
     - if king is threatened after all available moves for each piece, then checkmate
     -  idea: if I remove all possible moves that leave the king in check from the list of available moves and no possible moves remain, then checkmate
     - note: this leaves an issue: currently the board is only checked when one player moves a piece
+    - alternatively (continuing from above), if the check flag is thrown:
+        - loop through all of kings moves -- are there any where it is not in check?
+        - loop through every piece, check for each way of stopping the check
+            - can I take the piece that is attacking the king?
+            - can I put a piece between the attacking piece and the king?
 - Add insufficient material detection
     - e.g. if each side only has a single knight, game cannot be won
 - Add logic for alternating turns

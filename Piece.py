@@ -3,20 +3,25 @@ from itertools import product
 from abc import abstractmethod
 import pygame
 
-
 class ChessSet(pygame.sprite.Group):
     def __init__(self):
         super().__init__()
 
+        # setting up the surface
         self.n_squares = 8
         self.surface_sz = 480
         self.sq_sz = self.surface_sz // self.n_squares
         self.surface_sz = self.n_squares * self.sq_sz
 
+        # tracking captured pieces
         self.capture = None
         self.captured = pygame.sprite.Group()
 
+        # track piece history
         self.history = []
+
+        # test whether a piece has just promoted
+        self.promotion = None
 
     def update(self):
         """
@@ -39,19 +44,65 @@ class ChessSet(pygame.sprite.Group):
                             self.remove(cap)
                             sprite.capture = None
                             break
+        
+        # update the promotion attribute
+        self.check_promotion()
+    
+    # def new_update(self):
+        
+    #     board = self.get_positions()
+
+    #     # loop through pieces 
+    #     legal_move = False
+    #     for sprite in self.sprites():
+    #         # if selected, check if move is legal -> return True
+    #         if sprite.selected:
+
+    #             if sprite.isLegal():
+    #                 legal_move = True
+    #                 # need to get proposed move
+            
+    #         # get the current king position for check detection
+    #         if sprite.color == self.color:
+    #             if sprite.__class__.__name__ == "King":
+    #                 king_pos = sprite.pos
+
+    #     for sprite in self.sprites():
+
+    #         # loop through opposing pieces
+    #         if self.color != sprite.color:
+    #             # get the position of the king
+    #             if sprite.__class__.__name__ == "King":
+    #                 king_pos = sprite.pos 
+
+    #     for sprite in self.sprites():
+
+    #         if self.color == sprite.color:
+
+    #             # if king_pos not in available moves
+    #                 # return True
+
+
+         
+    #         # if none has king as available move -> return True
+    #     # if both are True:
+    #         # check if any of player's pieces can reach the king
+    #         # update
+    #     # else
+    #         # revert
     
     def select(self, mouse):
 
         for sprite in self.sprites():
             sprite.select(mouse)
     
-    def drag(self, move):
+    def drag(self, mouse):
 
-        on_board = all([0 <= m <= self.surface_sz for m in move])
+        on_board = all([0 <= m <= self.surface_sz for m in mouse])
 
         if on_board:
             for sprite in self.sprites():
-                sprite.drag(move)
+                sprite.drag(mouse)
 
     def get_positions(self):
 
@@ -62,6 +113,47 @@ class ChessSet(pygame.sprite.Group):
             board[y][x] = " ".join([sprite.color, sprite.ptype])
 
         return board
+    
+    def check_promotion(self):
+        # refactor with property in pawn
+        try:
+            pawn_move = self.history[-1]["Name"] == "Pawn"
+            pawn_on_last = self.history[-1]["Move"][1] in [0,7]
+
+            if pawn_move and pawn_on_last:
+                self.promotion = self.history[-1]["Move"]
+            else: 
+                self.promotion = None
+        except IndexError:
+            self.promotion = None
+        
+    def promote(self, location, chosen_piece):
+
+        # find the pawn at the given location
+        pawn_to_remove = [sprite for sprite in self.sprites() if sprite.grid_loc == location]
+        print(location)
+        print(pawn_to_remove)
+
+        if pawn_to_remove:
+            print("Replacing pawn with new piece.")
+            self.remove(pawn_to_remove[0])
+            promoted_piece = chosen_piece("white", self.sq_sz)
+            new_x, new_y = location
+            promoted_piece.rect.x, promoted_piece.rect.y = new_x * self.sq_sz, new_y * self.sq_sz
+            promoted_piece.pos = (promoted_piece.rect.x, promoted_piece.rect.y)
+            self.add(promoted_piece)
+    
+            updated_history = {
+                "Name": promoted_piece.__class__.__name__,
+                "Move": promoted_piece.grid_loc,
+                "Number": len(self.history),
+                "Capture": False,
+                "Special": "Promoted to Queen",
+            }
+    
+            self.history[-1] = updated_history
+            self.promotion = None
+            print(self.history)
 
     def create(self):
 
@@ -110,7 +202,40 @@ class ChessSet(pygame.sprite.Group):
 
         return pieces
 
+class PromotionSet(pygame.sprite.Group):
 
+    def __init__(self, color, sq_sz, pawn_position):
+
+        super().__init__()
+
+        # define list of options
+        self.pieces = [Queen, Rook, Bishop, Knight]
+
+        # get promoting pawn position
+        pawn_x, _ = pawn_position
+
+        # get positions of each piece
+        positions = [(pawn_x * sq_sz, y * sq_sz) for y in range(len(self.pieces))]
+
+        for p, pos in zip(self.pieces, positions):
+
+            piece = p(color, sq_sz)
+            piece.rect.x, piece.rect.y = pos
+
+            self.add(piece)
+    
+    def select(self, mouse):
+        selected = False
+        for sprite in self.sprites():
+            sprite.select(mouse)
+            if sprite.selected:
+                selected = [x for x in self.pieces
+                        if x.__name__ == sprite.__class__.__name__][0]
+                break
+
+        return selected
+
+        
 class Piece(pygame.sprite.Sprite):
     """Object for each piece"""
 
@@ -138,6 +263,16 @@ class Piece(pygame.sprite.Sprite):
 
         self.capture = None
 
+        self.proposed = None
+    
+    def snap_to(self):
+
+        if self.selected:
+            # snap the position to the closest square
+            self.rect.x = (round(self.rect.x / self.sq_sz)) * self.sq_sz
+            self.rect.y = (round(self.rect.y / self.sq_sz)) * self.sq_sz
+            self.proposed = (self.rect.x, self.rect.y)
+
     def update(self, board, history):
     
         if self.selected:
@@ -161,8 +296,15 @@ class Piece(pygame.sprite.Sprite):
 
         if self.rect.collidepoint(mouse):
             self.selected = True
+            # upon selection, centralize
+            self.rect.x = mouse[0] - self.sq_sz // 2
+            self.rect.y = mouse[1] - self.sq_sz // 2
+
+            # set offset for drag
             self.selected_offset_x = self.rect.x - mouse[0]
             self.selected_offset_y = self.rect.y - mouse[1]
+
+            # print for debug
             print(f"Selected {self.__class__.__name__}")
 
     def drag(self, move):
@@ -215,6 +357,10 @@ class Pawn(Piece):
             self.direct = 1
         elif self.color == "white":
             self.direct = -1
+    
+    @property
+    def promotion(self):
+        return self.rect.y in [0,7]
 
     def isLegal(self, board, proposed, **kwargs):
         # what is the position on the board?
@@ -300,11 +446,10 @@ class Pawn(Piece):
 
         return legal
 
-
 class Knight(Piece):
     """
 
-    gives list of available moves, but doesn't handle capturing
+    gives list of available moves and handles capturing
     """
 
     def __init__(self, color, sq_sz):

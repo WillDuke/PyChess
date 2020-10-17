@@ -2,7 +2,7 @@
 # import numpy as np
 # from abc import abstractmethod
 import pygame
-from Piece import ChessSet
+from Piece import ChessSet, PromotionSet
 
 ### GAME ###
 FPS = 60.0
@@ -19,7 +19,7 @@ class Game:
         self.sq_sz = self.surface_sz // self.n_squares
         self.surface_sz = self.n_squares * self.sq_sz
         # self.size = [self.surface_sz, self.surface_sz]
-        self.size = [self.surface_sz, self.surface_sz]
+        self.size = [self.surface_sz + 180, self.surface_sz]
         self.surface = pygame.display.set_mode(self.size)
 
         self.game_over = False
@@ -54,6 +54,45 @@ class Game:
 
         return False
 
+    def promotion_set(self, pawn_pos):
+        
+        print("Got inside if statement!")
+        promotion_set = PromotionSet("white", self.sq_sz, pawn_pos)
+        print(promotion_set)
+
+        return promotion_set
+
+
+    def draw_promotion(self, promotion_set):
+        """draw the options for selecting a piece to promote to"""
+
+        self.chessboard()
+        self.game_info()
+        self.pieces.draw(self.surface)
+        promotion_set.draw(self.surface)
+
+        pygame.display.flip()
+
+    def process_promotion(self, promotion_set):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    pygame.quit()
+
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                # if left-mouse clicked, update mouse position
+                if event.button == 1:
+                    print("testing!")
+                    selected = promotion_set.select(event.pos)
+                    if selected:
+                        print(f"Promoted to {selected.__name__}")
+                        return selected
+        
+        return False
+
     def display_frame(self):
         """ Display everything to the screen for the game. """
         # screen.fill(WHITE)
@@ -67,6 +106,8 @@ class Game:
             self.surface.blit(text, [center_x, center_y])
 
         if not self.game_over:
+            self.chessboard()
+            self.game_info()
             self.pieces.draw(self.surface)
 
         pygame.display.flip()
@@ -85,6 +126,11 @@ class Game:
                 self.surface.fill(self.board_colors[c_indx], the_square)
                 # Now flip the color index for the next square
                 c_indx = (c_indx + 1) % 2
+    
+    def game_info(self):
+
+        self.surface.fill((100,100,100), (480, 0, 180, 480))
+        self.surface.fill((0,0,0), (500, 20, 140, 400))
 
 
 def main():
@@ -108,13 +154,46 @@ def main():
         # Process events (keystrokes, mouse clicks, etc)
         done = game.process_events()
 
-        game.chessboard()
-
         # Update object positions, check for collisions
         # game.run_logic()
 
+        # get the location of a promotion
+        promote_loc = game.pieces.promotion
+        if promote_loc:
+            
+            # create a promotion set based on the promotion pos
+            promotion_set = game.promotion_set(promote_loc)
+
+            # while the play has not chosen an option, draw promotion set
+            chosen = False
+            while not chosen:
+
+                # draw the piece options
+                game.draw_promotion(promotion_set)
+
+                # check if a piece is selected
+                chosen_piece = game.process_promotion(promotion_set) 
+                
+                # if selected, tell game to replace that piece 
+                if chosen_piece:
+                    print(chosen_piece)
+                    # tell pieces to replace the piece at promote_loc with chosen_piece
+                    # also updates the history to reflect this change
+                    game.pieces.promote(promote_loc, chosen_piece)
+                    # tell pieces to update the history to reflect the change
+                    
+                    chosen = True
+
+                    
+
+                
         # Draw the current frame
         game.display_frame()
+
+        
+            # while inp != "quit":
+
+            #     inp = input("Write something:")
 
         # Pause for the next frame
         clock.tick(FPS)
@@ -125,3 +204,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
